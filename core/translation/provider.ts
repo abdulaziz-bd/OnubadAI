@@ -10,8 +10,8 @@ export interface SessionConfig {
 }
 
 // Every live-translation backend implements this. `openaiRealtimeProvider`
-// is the only real implementation right now; `mockProvider` satisfies the
-// same shape so the UI is fully buildable and testable without an API key.
+// is the only implementation right now, kept behind this interface so a
+// different provider could be swapped in without touching the UI.
 export interface TranslationProvider {
   connect(config: SessionConfig): Promise<void>
   sendAudioChunk(chunk: Float32Array): void

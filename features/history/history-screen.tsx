@@ -8,22 +8,6 @@ import { cn } from "@/lib/utils"
 import { sessionStore, HistoryEntry } from "@/core/storage/sessionStore"
 import { getLanguage } from "@/core/i18n/languages"
 
-const SEED_ENTRIES: Omit<HistoryEntry, "id" | "timestamp" | "starred">[] = [
-  {
-    kind: "live",
-    sourceLang: "en",
-    targetLang: "bn",
-    snippet: "Where is the train station? — 4 exchanges",
-    durationSec: 360,
-  },
-  {
-    kind: "text",
-    sourceLang: "en",
-    targetLang: "es",
-    snippet: "Could you send me the updated invoice before Friday?",
-  },
-]
-
 function relativeTime(timestamp: number) {
   const diffMin = Math.round((Date.now() - timestamp) / 60000)
   if (diffMin < 1) return "just now"
@@ -41,12 +25,7 @@ export function HistoryScreen() {
   const [filter, setFilter] = useState<Filter>("all")
 
   useEffect(() => {
-    let existing = sessionStore.getHistory()
-    if (existing.length === 0) {
-      SEED_ENTRIES.forEach((entry) => sessionStore.addEntry(entry))
-      existing = sessionStore.getHistory()
-    }
-    setEntries(existing)
+    setEntries(sessionStore.getHistory())
   }, [])
 
   function toggleStar(id: string) {

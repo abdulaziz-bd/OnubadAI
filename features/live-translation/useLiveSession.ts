@@ -5,7 +5,6 @@ import { toast } from "react-toastify"
 
 import { startMicCapture, MicCapture } from "@/core/audio/capture"
 import { createOpenAIRealtimeProvider } from "@/core/translation/openaiRealtimeProvider"
-import { createMockProvider } from "@/core/translation/mockProvider"
 import { TranslationProvider, TurnDetectionMode } from "@/core/translation/provider"
 import { sessionStore } from "@/core/storage/sessionStore"
 
@@ -18,18 +17,8 @@ export interface TranscriptTurn {
   text: string
 }
 
-// Demo mode only exists because a real turn needs OpenAI's speech-to-text -
-// there is no local fallback for "what did the user actually say" once the
-// old client-side Whisper path is gone. What IS always real, in both modes,
-// is the microphone permission flow and the live level meter below.
-const DEMO_TURNS: Record<Speaker, { source: string; translated: string }> = {
-  you: { source: "Excuse me, how much is this scarf?", translated: "এই স্কার্ফটার দাম কত?" },
-  them: { source: "ট্রেন স্টেশন কোথায়?", translated: "Where is the train station?" },
-}
-
 export function useLiveSession() {
   const [status, setStatus] = useState<LiveStatus>("idle")
-  const [mode, setMode] = useState<"live" | "demo">("live")
   const [error, setError] = useState<string | null>(null)
 
   const [sourceLang, setSourceLang] = useState("en")
@@ -87,27 +76,25 @@ export function useLiveSession() {
     micRef.current = mic
 
     const config = { sourceLanguage: sourceLang, targetLanguage: targetLang, turnDetection }
-
-    const realProvider = createOpenAIRealtimeProvider()
-    realProvider.attachMicStream(mic.stream)
+    const provider = createOpenAIRealtimeProvider()
+    provider.attachMicStream(mic.stream)
 
     try {
-      await realProvider.connect(config)
-      realProvider.setMicEnabled?.(false) // muted until the user taps a zone
-      providerRef.current = realProvider
-      setMode("live")
-      attachListeners(realProvider)
-    } catch {
-      // No OPENAI_API_KEY configured, or the handshake failed - fall back
-      // to demo mode rather than leaving the screen dead. This is the
-      // expected path in local dev without a key set.
-      const mock = createMockProvider()
-      await mock.connect(config)
-      providerRef.current = mock
-      setMode("demo")
-      attachListeners(mock)
-      toast.info("Realtime API isn't configured - showing Live in demo mode.")
+      await provider.connect(config)
+    } catch (e) {
+      mic.stop()
+      micRef.current = null
+      const message =
+        e instanceof Error ? e.message : "Could not start the realtime session."
+      setError(message)
+      setStatus("error")
+      toast.error(message)
+      return
     }
+
+    provider.setMicEnabled?.(false) // muted until the user taps a zone
+    providerRef.current = provider
+    attachListeners(provider)
 
     setStatus("ready")
     setElapsedSec(0)
@@ -142,30 +129,16 @@ export function useLiveSession() {
     (speaker: Speaker) => {
       if (status !== "ready") return
       setTalkingZone(speaker)
-      if (mode === "live") {
-        providerRef.current?.setMicEnabled?.(true)
-      }
+      providerRef.current?.setMicEnabled?.(true)
     },
-    [status, mode]
+    [status]
   )
 
-  const releaseZone = useCallback(
-    (speaker: Speaker) => {
-      if (status !== "ready") return
-      setTalkingZone(null)
-      if (mode === "live") {
-        providerRef.current?.setMicEnabled?.(false)
-      } else {
-        const demo = DEMO_TURNS[speaker]
-        ;(providerRef.current as ReturnType<typeof createMockProvider>)?.simulateTurn(
-          speaker,
-          demo.source,
-          demo.translated
-        )
-      }
-    },
-    [status, mode]
-  )
+  const releaseZone = useCallback(() => {
+    if (status !== "ready") return
+    setTalkingZone(null)
+    providerRef.current?.setMicEnabled?.(false)
+  }, [status])
 
   const setTurnDetection = useCallback((next: TurnDetectionMode) => {
     setTurnDetectionState(next)
@@ -174,7 +147,6 @@ export function useLiveSession() {
 
   return {
     status,
-    mode,
     error,
     sourceLang,
     targetLang,

@@ -46,7 +46,7 @@ export function LiveScreen() {
           <div className="flex items-center gap-3.5">
             <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground">
               <span className="h-[7px] w-[7px] animate-pulse rounded-full bg-primary" />
-              {session.mode === "demo" ? "Demo" : "Live"} · {formatElapsed(session.elapsedSec)}
+              Live · {formatElapsed(session.elapsedSec)}
             </span>
             <IconButton aria-label="Captions only">
               <Captions />
@@ -97,7 +97,7 @@ export function LiveScreen() {
               caption={session.captions.you}
               disabled={session.talkingZone === "them"}
               onPress={() => session.pressZone("you")}
-              onRelease={() => session.releaseZone("you")}
+              onRelease={session.releaseZone}
             />
             <ConversationZone
               speaker="them"
@@ -107,7 +107,7 @@ export function LiveScreen() {
               caption={session.captions.them}
               disabled={session.talkingZone === "you"}
               onPress={() => session.pressZone("them")}
-              onRelease={() => session.releaseZone("them")}
+              onRelease={session.releaseZone}
             />
           </div>
 
