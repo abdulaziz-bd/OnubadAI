@@ -9,15 +9,12 @@ export interface SessionConfig {
   voice?: string
 }
 
-// Every live-translation backend implements this. `openaiRealtimeProvider`
-// is the only implementation right now, kept behind this interface so a
-// different provider could be swapped in without touching the UI.
+// Kept behind an interface so a provider other than openaiRealtimeProvider could be swapped in.
 export interface TranslationProvider {
   connect(config: SessionConfig): Promise<void>
   sendAudioChunk(chunk: Float32Array): void
   setTurnDetection(mode: TurnDetectionMode): void
-  /** Tap-to-talk gating between turns. Optional: only meaningful for
-   *  providers backed by a continuous connection (WebRTC). */
+  // Tap-to-talk gating; only meaningful for continuous-connection providers.
   setMicEnabled?(enabled: boolean): void
   on<E extends RealtimeEventType>(
     event: E,

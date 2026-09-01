@@ -2,11 +2,7 @@ import { RealtimeSession } from "../realtime/session"
 import { RealtimeEventType, RealtimeEvent } from "../realtime/events"
 import { SessionConfig, TranslationProvider, TurnDetectionMode } from "./provider"
 
-// WebRTC (what RealtimeSession uses) streams the mic track directly over
-// the peer connection - it doesn't need audio pushed chunk by chunk the way
-// a WebSocket transport would. `sendAudioChunk` stays on the interface for
-// provider-shape compatibility but is a no-op here; the mic MediaStream is
-// attached once in `connect`.
+// WebRTC streams the mic track directly, so sendAudioChunk is a no-op here.
 export function createOpenAIRealtimeProvider(): TranslationProvider & {
   attachMicStream: (stream: MediaStream) => void
 } {
@@ -20,9 +16,7 @@ export function createOpenAIRealtimeProvider(): TranslationProvider & {
       }
       await session.connect(config, micStream)
     },
-    sendAudioChunk() {
-      // no-op: see comment above
-    },
+    sendAudioChunk() {},
     setTurnDetection(mode: TurnDetectionMode) {
       session.setTurnDetection(mode)
     },
@@ -39,9 +33,7 @@ export function createOpenAIRealtimeProvider(): TranslationProvider & {
       session.disconnect()
       micStream = null
     },
-    // Not part of the shared interface - the WebRTC provider needs the
-    // stream before connect() so the mic permission prompt and the level
-    // meter can start before the network handshake finishes.
+    // Not on the shared interface: needed before connect() so mic + meter can start early.
     attachMicStream(stream: MediaStream) {
       micStream = stream
     },

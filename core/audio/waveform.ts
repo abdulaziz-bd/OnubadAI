@@ -1,8 +1,4 @@
-// Turns a live MediaStream into a stream of amplitude levels (0-1) so the
-// UI can render a real mic-level meter instead of a decorative animation.
-// This runs entirely client-side via the Web Audio API - no network, no key
-// required, so it's the one piece of the Live screen that's fully testable
-// without OPENAI_API_KEY configured.
+// Real mic-level meter via the Web Audio API; no network or key required.
 
 export interface WaveformMeter {
   stop: () => void

@@ -5,9 +5,7 @@ export interface Language {
   rtl?: boolean
 }
 
-// Launch language set - adding a language is a data change here, not a UI
-// change. `code` follows BCP-47 and is passed straight through to the
-// OpenAI Realtime session and the text-translate endpoint.
+// Adding a language is a data change here, not a UI change.
 export const LANGUAGES: Language[] = [
   { code: "en", label: "English", nativeLabel: "English" },
   { code: "bn", label: "Bengali", nativeLabel: "বাংলা" },

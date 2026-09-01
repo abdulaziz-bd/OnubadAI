@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const maxDuration = 30
 
-// Mints a short-lived ephemeral token for the OpenAI Realtime API. The
-// browser only ever holds this ephemeral client_secret, never the real
-// OPENAI_API_KEY - see the architecture notes in the project blueprint.
+// Mints an ephemeral token; the browser never sees the real API key.
 export async function POST(request: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {

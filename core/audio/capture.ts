@@ -16,9 +16,7 @@ export class MicPermissionError extends Error {
   }
 }
 
-// Requests the mic once and wires a waveform meter to it. Kept separate from
-// the realtime session so the UI can show a real level meter and a real
-// permission-denied state even before (or without) a realtime connection.
+// Kept separate from the realtime session so a level meter works even without one.
 export async function startMicCapture(
   onLevel: (level: number) => void
 ): Promise<MicCapture> {

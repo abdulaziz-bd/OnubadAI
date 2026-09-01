@@ -9,9 +9,7 @@ const inter = Inter({
   display: "swap",
 })
 
-// Rendering Bengali/Arabic translations is core to the product, not an edge
-// case - Inter has no glyphs for either script, so these are chained into
-// the body font stack as real fallbacks rather than left to the OS default.
+// Inter has no Bengali/Arabic glyphs, so these are real fallbacks, not decoration.
 const notoBengali = Noto_Sans_Bengali({
   subsets: ["bengali"],
   variable: "--font-noto-bengali",

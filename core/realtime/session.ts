@@ -4,19 +4,7 @@ import { SessionConfig, TurnDetectionMode } from "../translation/provider"
 const REALTIME_URL = "https://api.openai.com/v1/realtime"
 const REALTIME_MODEL = "gpt-4o-realtime-preview"
 
-/**
- * Thin wrapper around the OpenAI Realtime WebRTC connection. Owns connection
- * lifecycle only - audio capture/playback and UI state live outside this
- * file (see core/audio and features/live-translation/useLiveSession).
- *
- * Connection handshake (SDP offer/answer over WebRTC, ephemeral token from
- * our own /api/realtime/session route) follows OpenAI's documented client
- * pattern and is the part of this file to trust most. The event *names*
- * parsed off the data channel in `handleServerEvent` below are more likely
- * to drift as the API evolves - verify them against the current Realtime
- * API reference before relying on this in production, and note that
- * unrecognized event types are ignored rather than throwing, by design.
- */
+// WebRTC client for OpenAI Realtime; owns connection lifecycle only, not audio/UI state.
 export class RealtimeSession {
   private pc: RTCPeerConnection | null = null
   private dataChannel: RTCDataChannel | null = null
@@ -99,9 +87,7 @@ export class RealtimeSession {
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
   }
 
-  // Tap-to-talk gating: rather than tearing down the connection between
-  // turns, mute the outgoing mic track. This is a standard WebRTC pattern
-  // (RTCRtpSender.track.enabled) and keeps the session alive between turns.
+  // Tap-to-talk: mute/unmute the outgoing track instead of tearing down the connection.
   setMicEnabled(enabled: boolean) {
     this.pc?.getSenders().forEach((sender) => {
       if (sender.track) sender.track.enabled = enabled
@@ -159,8 +145,7 @@ export class RealtimeSession {
         this.bus.emit({ type: "error", message: data.error?.message ?? "Realtime session error." })
         break
       default:
-        // Unrecognized event types are ignored rather than thrown - the
-        // event surface is large and still evolving upstream.
+        // Unrecognized event types are ignored rather than thrown.
         break
     }
   }

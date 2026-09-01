@@ -1,6 +1,4 @@
-// Typed event bus emitted by the realtime client. Screens consume these
-// through the useLiveSession hook - they never talk to the provider or the
-// WebRTC connection directly, so the provider stays swappable.
+// Screens consume this only through useLiveSession, so the provider stays swappable.
 
 export type RealtimeEvent =
   | { type: "connecting" }
