@@ -1,35 +1,52 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
-import "./globals.css";
+import type { Metadata } from "next"
+import { Inter, Noto_Sans_Bengali, Noto_Naskh_Arabic, JetBrains_Mono } from "next/font/google"
+import "./globals.css"
+import { AppShell } from "@/components/app-shell"
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+})
+
+// Rendering Bengali/Arabic translations is core to the product, not an edge
+// case - Inter has no glyphs for either script, so these are chained into
+// the body font stack as real fallbacks rather than left to the OS default.
+const notoBengali = Noto_Sans_Bengali({
+  subsets: ["bengali"],
+  variable: "--font-noto-bengali",
+  display: "swap",
+})
+
+const notoArabic = Noto_Naskh_Arabic({
+  subsets: ["arabic"],
+  variable: "--font-noto-arabic",
+  display: "swap",
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
-  title: "Voice Translator App",
-  description: "A real-time voice translation application",
-};
+  title: "OnubadAI",
+  description: "Live, two-way voice translation for the moment you need it.",
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${notoBengali.variable} ${notoArabic.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
-  );
+  )
 }

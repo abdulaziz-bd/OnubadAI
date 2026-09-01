@@ -1,0 +1,167 @@
+import { RealtimeEventBus } from "./events"
+import { SessionConfig, TurnDetectionMode } from "../translation/provider"
+
+const REALTIME_URL = "https://api.openai.com/v1/realtime"
+const REALTIME_MODEL = "gpt-4o-realtime-preview"
+
+/**
+ * Thin wrapper around the OpenAI Realtime WebRTC connection. Owns connection
+ * lifecycle only - audio capture/playback and UI state live outside this
+ * file (see core/audio and features/live-translation/useLiveSession).
+ *
+ * Connection handshake (SDP offer/answer over WebRTC, ephemeral token from
+ * our own /api/realtime/session route) follows OpenAI's documented client
+ * pattern and is the part of this file to trust most. The event *names*
+ * parsed off the data channel in `handleServerEvent` below are more likely
+ * to drift as the API evolves - verify them against the current Realtime
+ * API reference before relying on this in production, and note that
+ * unrecognized event types are ignored rather than throwing, by design.
+ */
+export class RealtimeSession {
+  private pc: RTCPeerConnection | null = null
+  private dataChannel: RTCDataChannel | null = null
+  private bus = new RealtimeEventBus()
+  private remoteAudio: HTMLAudioElement | null = null
+
+  on: RealtimeEventBus["on"] = (type, handler) => this.bus.on(type, handler)
+
+  async connect(config: SessionConfig, micStream: MediaStream): Promise<void> {
+    this.bus.emit({ type: "connecting" })
+
+    const tokenRes = await fetch("/api/realtime/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceLanguage: config.sourceLanguage,
+        targetLanguage: config.targetLanguage,
+        voice: config.voice ?? "verse",
+        turnDetection: config.turnDetection,
+      }),
+    })
+    if (!tokenRes.ok) {
+      const body = await tokenRes.json().catch(() => ({}))
+      throw new Error(
+        body.error ?? "Could not start a realtime session (check OPENAI_API_KEY on the server)."
+      )
+    }
+    const session = await tokenRes.json()
+    const ephemeralKey: string = session.client_secret?.value
+    if (!ephemeralKey) {
+      throw new Error("Realtime session response was missing a client secret.")
+    }
+
+    const pc = new RTCPeerConnection()
+    this.pc = pc
+
+    this.remoteAudio = new Audio()
+    this.remoteAudio.autoplay = true
+    pc.ontrack = (event) => {
+      if (this.remoteAudio) this.remoteAudio.srcObject = event.streams[0]
+    }
+
+    micStream.getAudioTracks().forEach((track) => pc.addTrack(track, micStream))
+
+    const dc = pc.createDataChannel("oai-events")
+    this.dataChannel = dc
+    dc.addEventListener("open", () => {
+      dc.send(
+        JSON.stringify({
+          type: "session.update",
+          session: {
+            instructions: `You are a live interpreter. Transcribe the speaker's ${config.sourceLanguage} audio, then speak a natural ${config.targetLanguage} translation. Do not add commentary.`,
+            turn_detection:
+              config.turnDetection === "server_vad"
+                ? { type: "server_vad" }
+                : null,
+          },
+        })
+      )
+      this.bus.emit({ type: "ready" })
+    })
+    dc.addEventListener("message", (event) => this.handleServerEvent(event.data))
+    dc.addEventListener("close", () => this.bus.emit({ type: "closed" }))
+
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+
+    const sdpRes = await fetch(`${REALTIME_URL}?model=${REALTIME_MODEL}`, {
+      method: "POST",
+      body: offer.sdp,
+      headers: {
+        Authorization: `Bearer ${ephemeralKey}`,
+        "Content-Type": "application/sdp",
+      },
+    })
+    if (!sdpRes.ok) {
+      throw new Error("Realtime connection was rejected by OpenAI.")
+    }
+    const answerSdp = await sdpRes.text()
+    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
+  }
+
+  // Tap-to-talk gating: rather than tearing down the connection between
+  // turns, mute the outgoing mic track. This is a standard WebRTC pattern
+  // (RTCRtpSender.track.enabled) and keeps the session alive between turns.
+  setMicEnabled(enabled: boolean) {
+    this.pc?.getSenders().forEach((sender) => {
+      if (sender.track) sender.track.enabled = enabled
+    })
+  }
+
+  setTurnDetection(mode: TurnDetectionMode) {
+    this.dataChannel?.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          turn_detection: mode === "server_vad" ? { type: "server_vad" } : null,
+        },
+      })
+    )
+  }
+
+  disconnect() {
+    this.dataChannel?.close()
+    this.pc?.getSenders().forEach((sender) => sender.track?.stop())
+    this.pc?.close()
+    this.pc = null
+    this.dataChannel = null
+    this.remoteAudio = null
+  }
+
+  private handleServerEvent(raw: string) {
+    let data: any
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      return
+    }
+
+    switch (data.type) {
+      case "input_audio_buffer.speech_started":
+        this.bus.emit({ type: "speech.start", speaker: "you" })
+        break
+      case "input_audio_buffer.speech_stopped":
+        this.bus.emit({ type: "speech.end", speaker: "you" })
+        break
+      case "conversation.item.input_audio_transcription.delta":
+        this.bus.emit({ type: "transcript.partial", speaker: "you", text: data.delta ?? "" })
+        break
+      case "conversation.item.input_audio_transcription.completed":
+        this.bus.emit({ type: "transcript.final", speaker: "you", text: data.transcript ?? "" })
+        break
+      case "response.audio_transcript.delta":
+        this.bus.emit({ type: "translation.partial", speaker: "them", text: data.delta ?? "" })
+        break
+      case "response.audio_transcript.done":
+        this.bus.emit({ type: "translation.final", speaker: "them", text: data.transcript ?? "" })
+        break
+      case "error":
+        this.bus.emit({ type: "error", message: data.error?.message ?? "Realtime session error." })
+        break
+      default:
+        // Unrecognized event types are ignored rather than thrown - the
+        // event surface is large and still evolving upstream.
+        break
+    }
+  }
+}

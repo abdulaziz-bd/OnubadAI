@@ -1,80 +1,63 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
+import OpenAI from "openai"
 
-// Set Response timeout to accommodate large model loading
-export const maxDuration = 60; // 60 seconds
+export const maxDuration = 30
 
-interface TranslationRequestBody {
-  text?: string;
-  source_lang?: string;
-  target_lang?: string;
+interface TranslateRequestBody {
+  text?: string
+  sourceLang?: string
+  targetLang?: string
+  formality?: "casual" | "neutral" | "formal"
 }
 
 export async function POST(request: NextRequest) {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "OPENAI_API_KEY is not configured on the server." },
+      { status: 500 }
+    )
+  }
+
+  const { text, sourceLang, targetLang, formality = "neutral" }: TranslateRequestBody =
+    await request.json().catch(() => ({}) as TranslateRequestBody)
+
+  if (!text) {
+    return NextResponse.json({ error: "No text provided for translation." }, { status: 400 })
+  }
+  if (!targetLang) {
+    return NextResponse.json({ error: "No target language specified." }, { status: 400 })
+  }
+
+  const openai = new OpenAI({ apiKey })
+
   try {
-    // Parse the JSON request body
-    const { text, source_lang, target_lang }: TranslationRequestBody =
-      await request.json();
-
-    // Validate the input
-    if (!text) {
-      return NextResponse.json(
-        { error: "No text provided for translation" },
-        { status: 400 }
-      );
-    }
-
-    if (!target_lang) {
-      return NextResponse.json(
-        { error: "No target language specified" },
-        { status: 400 }
-      );
-    }
-
-    console.log(`${process.env.TRANSLATION_API_URL}translate`);
-
-    // call the translation API
-    const response = await fetch(
-      `${process.env.TRANSLATION_API_URL}translate?text=${encodeURIComponent(
-        text
-      )}&source_lang=${encodeURIComponent(
-        source_lang || ""
-      )}&target_lang=${encodeURIComponent(target_lang)}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: [
+            `Translate the user's message${sourceLang ? ` from ${sourceLang}` : ""} into ${targetLang}.`,
+            `Use a ${formality} register.`,
+            "Reply with only the translation, no quotes, no explanation.",
+          ].join(" "),
         },
-      }
-    );
+        { role: "user", content: text },
+      ],
+    })
 
-    // Check if the response is ok
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Translation API error:", errorText);
-      return NextResponse.json(
-        { error: "Error from translation API" },
-        { status: 500 }
-      );
-    }
+    const translation = completion.choices[0]?.message?.content?.trim() ?? ""
 
-    // Parse the response
-    const { translation, source, target } = await response.json();
-
-    // Return the translation result with the detected language
     return NextResponse.json({
       originalText: text,
-      translation: translation,
-      sourceLanguage: source,
-      targetLanguage: target,
-    });
+      translation,
+      sourceLanguage: sourceLang ?? "auto",
+      targetLanguage: targetLang,
+    })
   } catch (error) {
-    console.error(
-      "Error processing translation:",
-      error instanceof Error ? error.message : String(error)
-    );
-    return NextResponse.json(
-      { error: "Error processing translation" },
-      { status: 500 }
-    );
+    console.error("Error processing translation:", error)
+    return NextResponse.json({ error: "Error processing translation." }, { status: 500 })
   }
 }

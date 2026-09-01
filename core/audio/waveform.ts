@@ -1,0 +1,44 @@
+// Turns a live MediaStream into a stream of amplitude levels (0-1) so the
+// UI can render a real mic-level meter instead of a decorative animation.
+// This runs entirely client-side via the Web Audio API - no network, no key
+// required, so it's the one piece of the Live screen that's fully testable
+// without OPENAI_API_KEY configured.
+
+export interface WaveformMeter {
+  stop: () => void
+}
+
+export function attachWaveformMeter(
+  stream: MediaStream,
+  onLevel: (level: number) => void
+): WaveformMeter {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+  const audioContext: AudioContext = new AudioCtx()
+  const source = audioContext.createMediaStreamSource(stream)
+  const analyser = audioContext.createAnalyser()
+  analyser.fftSize = 256
+  analyser.smoothingTimeConstant = 0.75
+  source.connect(analyser)
+
+  const data = new Uint8Array(analyser.frequencyBinCount)
+  let raf = 0
+
+  const tick = () => {
+    analyser.getByteFrequencyData(data)
+    let sum = 0
+    for (let i = 0; i < data.length; i++) sum += data[i]
+    const level = Math.min(1, sum / data.length / 128)
+    onLevel(level)
+    raf = requestAnimationFrame(tick)
+  }
+  raf = requestAnimationFrame(tick)
+
+  return {
+    stop: () => {
+      cancelAnimationFrame(raf)
+      source.disconnect()
+      analyser.disconnect()
+      void audioContext.close()
+    },
+  }
+}
