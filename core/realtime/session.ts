@@ -30,11 +30,12 @@ export class RealtimeSession {
       )
     }
     const session = await tokenRes.json()
-    const ephemeralKey: string = session.value ?? session.client_secret?.value
-    if (!ephemeralKey) {
+    const realtimeUrl: string = session.realtimeUrl
+    const ephemeralKey: string | undefined =
+      session.authMode === "none" ? undefined : session.value ?? session.client_secret?.value
+    if (session.authMode !== "none" && !ephemeralKey) {
       throw new Error("Realtime session response was missing a client secret.")
     }
-    const realtimeUrl: string = session.realtimeUrl
 
     const pc = new RTCPeerConnection()
     this.pc = pc
@@ -73,10 +74,9 @@ export class RealtimeSession {
     const sdpRes = await fetch(realtimeUrl, {
       method: "POST",
       body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${ephemeralKey}`,
-        "Content-Type": "application/sdp",
-      },
+      headers: ephemeralKey
+        ? { Authorization: `Bearer ${ephemeralKey}`, "Content-Type": "application/sdp" }
+        : { "Content-Type": "application/sdp" },
     })
     if (!sdpRes.ok) {
       throw new Error("The realtime endpoint rejected the connection.")
