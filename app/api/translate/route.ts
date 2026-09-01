@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No target language specified." }, { status: 400 })
   }
 
-  const openai = new OpenAI({ apiKey })
+  const openai = new OpenAI({ apiKey, baseURL: process.env.OPENAI_BASE_URL })
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
       temperature: 0.2,
       messages: [
         {
