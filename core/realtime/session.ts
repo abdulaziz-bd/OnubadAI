@@ -30,12 +30,11 @@ export class RealtimeSession {
       )
     }
     const session = await tokenRes.json()
-    const ephemeralKey: string = session.client_secret?.value
+    const ephemeralKey: string = session.value ?? session.client_secret?.value
     if (!ephemeralKey) {
       throw new Error("Realtime session response was missing a client secret.")
     }
     const realtimeUrl: string = session.realtimeUrl
-    const model: string = session.model
 
     const pc = new RTCPeerConnection()
     this.pc = pc
@@ -71,7 +70,7 @@ export class RealtimeSession {
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
 
-    const sdpRes = await fetch(`${realtimeUrl}?model=${model}`, {
+    const sdpRes = await fetch(realtimeUrl, {
       method: "POST",
       body: offer.sdp,
       headers: {
@@ -134,10 +133,10 @@ export class RealtimeSession {
       case "conversation.item.input_audio_transcription.completed":
         this.bus.emit({ type: "transcript.final", speaker: "you", text: data.transcript ?? "" })
         break
-      case "response.audio_transcript.delta":
+      case "response.output_audio_transcript.delta":
         this.bus.emit({ type: "translation.partial", speaker: "them", text: data.delta ?? "" })
         break
-      case "response.audio_transcript.done":
+      case "response.output_audio_transcript.done":
         this.bus.emit({ type: "translation.final", speaker: "them", text: data.transcript ?? "" })
         break
       case "error":

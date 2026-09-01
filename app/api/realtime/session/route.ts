@@ -15,17 +15,24 @@ export async function POST(request: NextRequest) {
   }
 
   const baseUrl = process.env.OPENAI_BASE_URL ?? DEFAULT_BASE_URL
-  const model = process.env.OPENAI_REALTIME_MODEL ?? "gpt-4o-realtime-preview"
-  const { voice } = await request.json().catch(() => ({ voice: "verse" }))
+  const model = process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime"
+  const { sourceLanguage, targetLanguage, voice } = await request.json().catch(() => ({}))
 
   try {
-    const response = await fetch(`${baseUrl}/realtime/sessions`, {
+    const response = await fetch(`${baseUrl}/realtime/client_secrets`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model, voice: voice ?? "verse" }),
+      body: JSON.stringify({
+        session: {
+          type: "realtime",
+          model,
+          instructions: `You are a live interpreter. Transcribe the speaker's ${sourceLanguage ?? "source"} audio, then speak a natural ${targetLanguage ?? "target"} translation. Do not add commentary.`,
+          audio: { output: { voice: voice ?? "verse" } },
+        },
+      }),
     })
 
     if (!response.ok) {
@@ -38,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await response.json()
-    return NextResponse.json({ ...session, realtimeUrl: `${baseUrl}/realtime`, model })
+    return NextResponse.json({ ...session, realtimeUrl: `${baseUrl}/realtime/calls`, model })
   } catch (error) {
     console.error("Error minting realtime session:", error)
     return NextResponse.json(
