@@ -1,10 +1,7 @@
 import { RealtimeEventBus } from "./events"
 import { SessionConfig, TurnDetectionMode } from "../translation/provider"
 
-const REALTIME_URL = "https://api.openai.com/v1/realtime"
-const REALTIME_MODEL = "gpt-4o-realtime-preview"
-
-// WebRTC client for OpenAI Realtime; owns connection lifecycle only, not audio/UI state.
+// WebRTC client for any OpenAI Realtime API compatible endpoint; owns connection lifecycle only.
 export class RealtimeSession {
   private pc: RTCPeerConnection | null = null
   private dataChannel: RTCDataChannel | null = null
@@ -37,6 +34,8 @@ export class RealtimeSession {
     if (!ephemeralKey) {
       throw new Error("Realtime session response was missing a client secret.")
     }
+    const realtimeUrl: string = session.realtimeUrl
+    const model: string = session.model
 
     const pc = new RTCPeerConnection()
     this.pc = pc
@@ -72,7 +71,7 @@ export class RealtimeSession {
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
 
-    const sdpRes = await fetch(`${REALTIME_URL}?model=${REALTIME_MODEL}`, {
+    const sdpRes = await fetch(`${realtimeUrl}?model=${model}`, {
       method: "POST",
       body: offer.sdp,
       headers: {
@@ -81,7 +80,7 @@ export class RealtimeSession {
       },
     })
     if (!sdpRes.ok) {
-      throw new Error("Realtime connection was rejected by OpenAI.")
+      throw new Error("The realtime endpoint rejected the connection.")
     }
     const answerSdp = await sdpRes.text()
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
