@@ -6,6 +6,7 @@ import { AudioLines, Languages, History, Settings } from "lucide-react"
 import { ToastContainer } from "react-toastify"
 
 import { cn } from "@/lib/utils"
+import { Wordmark } from "@/components/wordmark"
 
 const NAV_ITEMS = [
   { href: "/", label: "Live", icon: AudioLines },
@@ -20,12 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-[60px] flex-shrink-0 items-center gap-7 border-b border-border bg-card px-4 sm:px-6">
-        <div className="mr-2 flex items-center gap-2.5 text-[16px] font-extrabold tracking-tight">
-          <span className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-[8px] bg-primary text-[12px] font-extrabold text-primary-foreground">
-            O
-          </span>
-          OnubadAI
-        </div>
+        <Wordmark className="mr-4 text-[17px]" />
 
         <nav aria-label="Primary" className="flex h-full gap-1">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
