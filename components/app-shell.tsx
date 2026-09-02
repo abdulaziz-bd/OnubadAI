@@ -47,6 +47,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex-1">{children}</main>
+
+      <footer className="flex-shrink-0 border-t border-border px-4 py-4 text-center text-xs text-muted-faint sm:px-6">
+        <Wordmark className="text-xs" /> · © {new Date().getFullYear()}
+      </footer>
+
       <ToastContainer position="bottom-right" theme="light" />
     </div>
   )
