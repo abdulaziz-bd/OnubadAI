@@ -10,12 +10,14 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void
   "aria-label": string
   className?: string
+  disabled?: boolean
 }
 
 function Segmented<T extends string>({
   options,
   value,
   onChange,
+  disabled,
   className,
   ...rest
 }: SegmentedProps<T>) {
@@ -24,6 +26,7 @@ function Segmented<T extends string>({
       role="group"
       className={cn(
         "inline-flex gap-0.5 rounded-full border border-input bg-secondary p-0.5",
+        disabled && "pointer-events-none opacity-50",
         className
       )}
       {...rest}
@@ -32,6 +35,7 @@ function Segmented<T extends string>({
         <button
           key={opt.value}
           type="button"
+          disabled={disabled}
           onClick={() => onChange(opt.value)}
           aria-pressed={value === opt.value}
           className={cn(

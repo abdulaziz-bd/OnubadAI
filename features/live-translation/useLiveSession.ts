@@ -7,6 +7,7 @@ import { startMicCapture, MicCapture } from "@/core/audio/capture"
 import { createOpenAIRealtimeProvider } from "@/core/translation/openaiRealtimeProvider"
 import { TranslationProvider, TurnDetectionMode } from "@/core/translation/provider"
 import { sessionStore } from "@/core/storage/sessionStore"
+import { getPreferences } from "@/core/storage/preferences"
 
 export type LiveStatus = "idle" | "connecting" | "ready" | "error"
 export type Speaker = "you" | "them"
@@ -46,12 +47,15 @@ export function useLiveSession() {
     provider.on("transcript.partial", ({ speaker, text }) =>
       setCaptions((c) => ({ ...c, [speaker]: text }))
     )
-    provider.on("transcript.final", ({ speaker, text }) => {
+    provider.on("translation.partial", ({ speaker, text }) =>
       setCaptions((c) => ({ ...c, [speaker]: text }))
+    )
+    provider.on("transcript.final", ({ speaker, text }) => {
+      setCaptions((c) => ({ ...c, [speaker]: "" }))
       setTranscript((t) => [...t, { id: crypto.randomUUID(), speaker, text }])
     })
     provider.on("translation.final", ({ speaker, text }) => {
-      setCaptions((c) => ({ ...c, [speaker]: text }))
+      setCaptions((c) => ({ ...c, [speaker]: "" }))
       setTranscript((t) => [...t, { id: crypto.randomUUID(), speaker, text }])
     })
     provider.on("error", ({ message }) => {
@@ -65,7 +69,8 @@ export function useLiveSession() {
 
     let mic: MicCapture
     try {
-      mic = await startMicCapture(setMicLevel)
+      const { noiseSuppression } = getPreferences()
+      mic = await startMicCapture(setMicLevel, { noiseSuppression })
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not access the microphone."
       setError(message)
@@ -92,7 +97,7 @@ export function useLiveSession() {
       return
     }
 
-    provider.setMicEnabled?.(false) // muted until the user taps a zone
+    if (turnDetection === "push_to_talk") provider.setMicEnabled?.(false)
     providerRef.current = provider
     attachListeners(provider)
 

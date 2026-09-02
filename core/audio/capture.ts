@@ -18,7 +18,8 @@ export class MicPermissionError extends Error {
 
 // Kept separate from the realtime session so a level meter works even without one.
 export async function startMicCapture(
-  onLevel: (level: number) => void
+  onLevel: (level: number) => void,
+  { noiseSuppression = true }: { noiseSuppression?: boolean } = {}
 ): Promise<MicCapture> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error("This browser does not support microphone access.")
@@ -27,7 +28,7 @@ export async function startMicCapture(
   let stream: MediaStream
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
+      audio: { echoCancellation: true, noiseSuppression },
     })
   } catch (cause) {
     throw new MicPermissionError(cause)

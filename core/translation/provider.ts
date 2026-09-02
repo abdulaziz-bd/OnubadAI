@@ -6,13 +6,11 @@ export interface SessionConfig {
   sourceLanguage: string
   targetLanguage: string
   turnDetection: TurnDetectionMode
-  voice?: string
 }
 
 // Kept behind an interface so a provider other than openaiRealtimeProvider could be swapped in.
 export interface TranslationProvider {
   connect(config: SessionConfig): Promise<void>
-  sendAudioChunk(chunk: Float32Array): void
   setTurnDetection(mode: TurnDetectionMode): void
   // Tap-to-talk gating; only meaningful for continuous-connection providers.
   setMicEnabled?(enabled: boolean): void

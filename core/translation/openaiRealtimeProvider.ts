@@ -2,7 +2,6 @@ import { RealtimeSession } from "../realtime/session"
 import { RealtimeEventType, RealtimeEvent } from "../realtime/events"
 import { SessionConfig, TranslationProvider, TurnDetectionMode } from "./provider"
 
-// WebRTC streams the mic track directly, so sendAudioChunk is a no-op here.
 export function createOpenAIRealtimeProvider(): TranslationProvider & {
   attachMicStream: (stream: MediaStream) => void
 } {
@@ -16,7 +15,6 @@ export function createOpenAIRealtimeProvider(): TranslationProvider & {
       }
       await session.connect(config, micStream)
     },
-    sendAudioChunk() {},
     setTurnDetection(mode: TurnDetectionMode) {
       session.setTurnDetection(mode)
     },

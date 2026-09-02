@@ -11,10 +11,10 @@ import { cn } from "@/lib/utils"
 import { getPreferences, setPreferences, Preferences } from "@/core/storage/preferences"
 import { sessionStore } from "@/core/storage/sessionStore"
 
-const VOICES: { id: Preferences["voice"]; label: string }[] = [
-  { id: "nadia", label: "Nadia" },
-  { id: "kabir", label: "Kabir" },
-  { id: "aria", label: "Aria" },
+const VOICES: { id: Preferences["voice"]; label: string; description: string }[] = [
+  { id: "nova", label: "Nova", description: "Warm · Friendly" },
+  { id: "alloy", label: "Alloy", description: "Neutral · Clear" },
+  { id: "onyx", label: "Onyx", description: "Deep · Confident" },
 ]
 
 export function SettingsScreen() {
@@ -31,10 +31,17 @@ export function SettingsScreen() {
     setPreferences(patch)
   }
 
-  function speakSample(voice: string) {
-    if (typeof window === "undefined" || !window.speechSynthesis) return
-    const utterance = new SpeechSynthesisUtterance(`Hi, I'm ${voice}.`)
-    window.speechSynthesis.speak(utterance)
+  async function speakSample(voice: string) {
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `Hi, I'm ${voice}. I'll read your translations.`, voice }),
+    })
+    if (!res.ok) return
+    const url = URL.createObjectURL(await res.blob())
+    const audio = new Audio(url)
+    audio.onended = () => URL.revokeObjectURL(url)
+    audio.play()
   }
 
   if (!prefs) return null
@@ -59,20 +66,23 @@ export function SettingsScreen() {
                 type="button"
                 onClick={() => update({ voice: voice.id })}
                 className={cn(
-                  "flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2.5 text-left text-sm",
+                  "flex flex-col gap-1.5 rounded-md border border-input bg-background px-3 py-2.5 text-left",
                   prefs.voice === voice.id && "border-primary bg-accent"
                 )}
               >
-                <span
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-secondary"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    speakSample(voice.label)
-                  }}
-                >
-                  <Play className="h-3 w-3" />
-                </span>
-                {voice.label}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{voice.label}</span>
+                  <span
+                    className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary hover:bg-muted"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      speakSample(voice.id)
+                    }}
+                  >
+                    <Play className="h-2.5 w-2.5" />
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-faint">{voice.description}</span>
               </button>
             ))}
           </div>

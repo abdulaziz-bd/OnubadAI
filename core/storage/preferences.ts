@@ -1,5 +1,5 @@
 export interface Preferences {
-  voice: "nadia" | "kabir" | "aria"
+  voice: "nova" | "alloy" | "onyx"
   speechRate: number
   noiseSuppression: boolean
   autoReadTranslations: boolean
@@ -7,7 +7,7 @@ export interface Preferences {
 }
 
 const DEFAULTS: Preferences = {
-  voice: "nadia",
+  voice: "nova",
   speechRate: 1,
   noiseSuppression: true,
   autoReadTranslations: true,

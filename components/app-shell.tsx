@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { AudioLines, Languages, History, Settings } from "lucide-react"
@@ -7,6 +8,7 @@ import { ToastContainer } from "react-toastify"
 
 import { cn } from "@/lib/utils"
 import { Wordmark } from "@/components/wordmark"
+import { getPreferences } from "@/core/storage/preferences"
 
 const NAV_ITEMS = [
   { href: "/", label: "Live", icon: AudioLines },
@@ -17,6 +19,11 @@ const NAV_ITEMS = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+
+  useEffect(() => {
+    const scale: Record<string, string> = { sm: "87.5%", default: "100%", lg: "112.5%" }
+    document.documentElement.style.fontSize = scale[getPreferences().textSize] ?? "100%"
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col">

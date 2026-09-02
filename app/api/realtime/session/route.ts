@@ -4,17 +4,24 @@ export const maxDuration = 30
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
-// Mints an ephemeral token; the browser never sees the real API key.
+function withApiVersion(url: string): string {
+  const apiVersion = process.env.OPENAI_API_VERSION
+  if (!apiVersion) return url
+  const sep = url.includes("?") ? "&" : "?"
+  return `${url}${sep}api-version=${apiVersion}`
+}
+
+// Mints an ephemeral token for a translation session; the browser never sees the real API key.
 export async function POST(request: NextRequest) {
   const baseUrl = process.env.OPENAI_BASE_URL ?? DEFAULT_BASE_URL
-  const model = process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime"
-  const { sourceLanguage, targetLanguage, voice } = await request.json().catch(() => ({}))
+  const model = process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime-translate"
+  const { sourceLanguage, targetLanguage } = await request.json().catch(() => ({}))
 
-  // Self-hosted servers (LocalAI, hf speech-to-speech) skip ephemeral tokens entirely.
+  // Self-hosted servers skip ephemeral tokens entirely.
   if (process.env.OPENAI_REALTIME_AUTH === "none") {
     return NextResponse.json({
       authMode: "none",
-      realtimeUrl: `${baseUrl}/realtime?model=${model}`,
+      realtimeUrl: withApiVersion(`${baseUrl}/realtime/translations/calls`),
     })
   }
 
@@ -26,26 +33,32 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const sessionPayload = {
+    model,
+    audio: {
+      input: {
+        transcription: { model: process.env.OPENAI_REALTIME_TRANSCRIPTION_MODEL ?? "gpt-realtime-whisper" },
+      },
+      output: {
+        language: targetLanguage ?? "en",
+      },
+    },
+  }
+
   try {
-    const response = await fetch(`${baseUrl}/realtime/client_secrets`, {
+    const response = await fetch(withApiVersion(`${baseUrl}/realtime/translations/client_secrets`), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        session: {
-          type: "realtime",
-          model,
-          instructions: `You are a live interpreter. Transcribe the speaker's ${sourceLanguage ?? "source"} audio, then speak a natural ${targetLanguage ?? "target"} translation. Do not add commentary.`,
-          audio: { output: { voice: voice ?? "verse" } },
-        },
-      }),
+      body: JSON.stringify({ session: sessionPayload }),
     })
 
     if (!response.ok) {
       const text = await response.text()
-      console.error("Realtime session error:", text)
+      console.error(`Realtime session error [${response.status}]:`, text)
       return NextResponse.json(
         { error: "The configured endpoint rejected the realtime session request." },
         { status: 502 }
@@ -56,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ...session,
       authMode: "ephemeral",
-      realtimeUrl: `${baseUrl}/realtime/calls`,
+      realtimeUrl: withApiVersion(`${baseUrl}/realtime/translations/calls`),
       model,
     })
   } catch (error) {

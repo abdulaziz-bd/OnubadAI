@@ -1,8 +1,6 @@
 // Screens consume this only through useLiveSession, so the provider stays swappable.
 
 export type RealtimeEvent =
-  | { type: "connecting" }
-  | { type: "ready" }
   | { type: "speech.start"; speaker: "you" | "them" }
   | { type: "speech.end"; speaker: "you" | "them" }
   | { type: "transcript.partial"; speaker: "you" | "them"; text: string }
@@ -10,7 +8,6 @@ export type RealtimeEvent =
   | { type: "translation.partial"; speaker: "you" | "them"; text: string }
   | { type: "translation.final"; speaker: "you" | "them"; text: string }
   | { type: "error"; message: string }
-  | { type: "closed" }
 
 export type RealtimeEventType = RealtimeEvent["type"]
 

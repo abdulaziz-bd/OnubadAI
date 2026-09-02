@@ -8,6 +8,7 @@ import { LanguagePicker } from "@/components/language-picker"
 import { IconButton } from "@/components/ui/icon-button"
 import { Segmented } from "@/components/ui/segmented"
 import { sessionStore } from "@/core/storage/sessionStore"
+import { getPreferences } from "@/core/storage/preferences"
 
 type Formality = "casual" | "neutral" | "formal"
 
@@ -41,6 +42,7 @@ export function TranslateScreen() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? "Translation failed.")
         setTranslation(data.translation)
+        if (getPreferences().autoReadTranslations) speak(data.translation)
 
         const snippet = text.slice(0, 120)
         if (historyEntryId.current) {
@@ -77,11 +79,19 @@ export function TranslateScreen() {
     setTranslation(text)
   }
 
-  function speak(value: string, lang: string) {
-    if (!value || typeof window === "undefined" || !window.speechSynthesis) return
-    const utterance = new SpeechSynthesisUtterance(value)
-    utterance.lang = lang
-    window.speechSynthesis.speak(utterance)
+  async function speak(value: string) {
+    if (!value) return
+    const { voice, speechRate } = getPreferences()
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: value, voice, speed: speechRate }),
+    })
+    if (!res.ok) return
+    const url = URL.createObjectURL(await res.blob())
+    const audio = new Audio(url)
+    audio.onended = () => URL.revokeObjectURL(url)
+    audio.play()
   }
 
   return (
@@ -128,7 +138,7 @@ export function TranslateScreen() {
             <div className="flex gap-0.5">
               <IconButton
                 aria-label="Listen to translation"
-                onClick={() => speak(translation, targetLang)}
+                onClick={() => speak(translation)}
                 disabled={!translation}
               >
                 <Volume2 />
