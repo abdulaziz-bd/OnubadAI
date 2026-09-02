@@ -25,6 +25,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Makefile
+
+```bash
+make setup        # copy .env.example → .env.local and install deps
+make dev          # start dev server
+make build        # production build
+make start        # start production server
+make docker-build # build Docker image
+make docker-run   # run Docker container (loads .env.local)
+```
+
+## Docker
+
+```bash
+# build
+docker build -t onubadai .
+
+# run (pass your env file)
+docker run --env-file .env.local -p 3000:3000 onubadai
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
 ## Environment Variables
 
 See `.env.example` for required keys.
