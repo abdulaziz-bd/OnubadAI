@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ArrowLeftRight, Copy, Volume2 } from "lucide-react"
 import { toast } from "react-toastify"
 
@@ -11,6 +11,8 @@ import { sessionStore } from "@/core/storage/sessionStore"
 
 type Formality = "casual" | "neutral" | "formal"
 
+const DEBOUNCE_MS = 500
+
 export function TranslateScreen() {
   const [sourceLang, setSourceLang] = useState("en")
   const [targetLang, setTargetLang] = useState("es")
@@ -19,34 +21,54 @@ export function TranslateScreen() {
   const [formality, setFormality] = useState<Formality>("neutral")
   const [isTranslating, setIsTranslating] = useState(false)
 
-  async function handleTranslate(value: string) {
-    setText(value)
-    if (!value.trim()) {
+  const historyEntryId = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!text.trim()) {
       setTranslation("")
+      historyEntryId.current = null
       return
     }
-    setIsTranslating(true)
-    try {
-      const res = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: value, sourceLang, targetLang, formality }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Translation failed.")
-      setTranslation(data.translation)
-      sessionStore.addEntry({
-        kind: "text",
-        sourceLang,
-        targetLang,
-        snippet: value.slice(0, 120),
-      })
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Translation failed.")
-    } finally {
-      setIsTranslating(false)
-    }
-  }
+
+    const timer = setTimeout(async () => {
+      setIsTranslating(true)
+      try {
+        const res = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, sourceLang, targetLang, formality }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? "Translation failed.")
+        setTranslation(data.translation)
+
+        const snippet = text.slice(0, 120)
+        if (historyEntryId.current) {
+          sessionStore.updateEntry(historyEntryId.current, { snippet })
+        } else {
+          historyEntryId.current = sessionStore.addEntry({
+            kind: "text",
+            sourceLang,
+            targetLang,
+            snippet,
+          })
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Translation failed.")
+      } finally {
+        setIsTranslating(false)
+      }
+    }, DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, sourceLang, targetLang, formality])
+
+  // A language swap is a new translation task, not an edit of the last one.
+  useEffect(() => {
+    historyEntryId.current = null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLang, targetLang])
 
   function swap() {
     setSourceLang(targetLang)
@@ -79,7 +101,7 @@ export function TranslateScreen() {
           </span>
           <textarea
             value={text}
-            onChange={(e) => handleTranslate(e.target.value)}
+            onChange={(e) => setText(e.target.value)}
             placeholder="Type or paste text…"
             className="mt-2.5 flex-1 resize-none bg-transparent text-[17px] leading-relaxed outline-none placeholder:text-muted-faint"
           />
@@ -130,10 +152,7 @@ export function TranslateScreen() {
         <Segmented
           aria-label="Formality"
           value={formality}
-          onChange={(next) => {
-            setFormality(next)
-            if (text) handleTranslate(text)
-          }}
+          onChange={setFormality}
           options={[
             { value: "casual", label: "Casual" },
             { value: "neutral", label: "Neutral" },

@@ -37,15 +37,18 @@ export const sessionStore = {
   getHistory(): HistoryEntry[] {
     return readJSON<HistoryEntry[]>(HISTORY_KEY, [])
   },
-  addEntry(entry: Omit<HistoryEntry, "id" | "timestamp" | "starred">) {
-    if (sessionStore.isEphemeral()) return
+  addEntry(entry: Omit<HistoryEntry, "id" | "timestamp" | "starred">): string | null {
+    if (sessionStore.isEphemeral()) return null
     const entries = sessionStore.getHistory()
-    entries.unshift({
-      ...entry,
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      starred: false,
-    })
+    const id = crypto.randomUUID()
+    entries.unshift({ ...entry, id, timestamp: Date.now(), starred: false })
+    writeJSON(HISTORY_KEY, entries)
+    return id
+  },
+  updateEntry(id: string, patch: Partial<Omit<HistoryEntry, "id" | "starred">>) {
+    const entries = sessionStore
+      .getHistory()
+      .map((e) => (e.id === id ? { ...e, ...patch } : e))
     writeJSON(HISTORY_KEY, entries)
   },
   toggleStar(id: string) {
